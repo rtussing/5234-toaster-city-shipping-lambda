@@ -15,5 +15,7 @@ class ShippingInfo(Base):
     city = Column(VARCHAR(45), nullable=True)
     state = Column(VARCHAR(45), nullable=True)
     zip = Column(VARCHAR(45), nullable=True)
+    approximate_weight = Column(INT, nullable=True)
+    number_of_items = Column(INT, nullable=True)
 
     orders = relationship("CustomerOrder", back_populates="shipping_info")

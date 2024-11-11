@@ -37,6 +37,9 @@ class ShippingProcessingService(object):
             The shipping information that's to be processed. Expected format of the information:
             ```
             {
+                'company_id': 1,
+                'number_of_items': 2,
+                'approximate_weight': 5.0,
                 'name': 'Jane Doe',
                 'address_1': '123 Main St',
                 'address_2': '321 2nd Ave',
@@ -45,27 +48,12 @@ class ShippingProcessingService(object):
                 'zip': 43210
             }
             ```
-        
+
         Returns
         -------
         tuple[int, str]
             A an HTTP response status code and a message. If no error, message is confirmation number.
         """
-        sql = sa.select(ShippingInfo.id).where(
-            (sa.func.upper(ShippingInfo.name) == sa.func.upper(shipping['name']))
-            & (sa.func.upper(ShippingInfo.address_1) == sa.func.upper(shipping['address_1']))
-            & (sa.func.upper(ShippingInfo.address_2) == sa.func.upper(shipping['address_2']))
-            & (sa.func.upper(ShippingInfo.city) == sa.func.upper(shipping['city']))
-            & (sa.func.upper(ShippingInfo.state) == sa.func.upper(shipping['state']))
-            & (sa.func.upper(ShippingInfo.zip) == sa.func.upper(shipping['zip']))
-        )
-
-        id = DatabaseProvider.query_db(self._engine, sql)
-        if id:
-            self._shipping_info_id = id[0][0] # query_db returns a list of tuples
-            return
-
-        # Payment doesn't exist, insert new row
         # Retrieve/calculate new ID for row, since to_sql doesn't return new ID from auto_increment
         id = DatabaseProvider.query_db(self._engine, sa.select(sa.func.ifnull(sa.func.max(ShippingInfo.id), 0) + 1))[0][0]
 
@@ -77,17 +65,15 @@ class ShippingProcessingService(object):
 
         self._raw_shipping = shipping
 
-        if not self.__update_database_with_order__():
+        if not self.__update_database_with_shipping__():
             return 500, f'An error occurred when making changes to database.'
 
         return 200, self._order_id
 
-    def __update_database_with_order__(self) -> bool:
+    def __update_database_with_shipping__(self) -> bool:
         """
-        Makes necessary changes to the database based on the order.
-        Inserts payment and shipping info if they are new.
-        Inserts order and order items.
-        Updates inventory by subtracting the stock quantity by what's ordered.
+        Makes necessary changes to the database based on the shipping information.
+        Inserts shipping info if it's new.
 
         Returns
         -------
